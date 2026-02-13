@@ -8,8 +8,6 @@ library(QuantPsyc)
 library(segmented)
 library(pdp)
 
-setwd("C:/Users/agneh/Desktop/URSA")
-
 ### Data ###
 
 e_daily_q<-read.csv("C:/Users/agneh/Box/Hydrology_Lab/Undergraduates/URSA/Gracie Neher/ForSubmission/Final_Data/East_Q.csv")
@@ -466,3 +464,4 @@ pdf("actual_vs_predicted.pdf", width = 5, height = 10)
 ggarrange(avp_w, avp_sp, avp_su, ncol = 1, nrow = 3)
 
 dev.off()
+
