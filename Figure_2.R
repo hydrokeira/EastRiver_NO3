@@ -7,13 +7,15 @@ library(segmented)
 library(trend)
 library(tidyr)
 
-### Data ###
+##discharge/swe plot
+
+#data
 east_q<- read.csv("C:/Users/agneh/Box/Hydrology_Lab/Undergraduates/URSA/Gracie Neher/Data/east_q_wyd.csv")
 swe<- read.csv("C:/Users/agneh/Box/Hydrology_Lab/Undergraduates/URSA/Gracie Neher/Data/swe_wyd.csv")
 dep<- read.csv("C:/Users/agneh/Box/Hydrology_Lab/Undergraduates/URSA/Gracie Neher/Data/CB_N_deposition.csv")
 loads<- read.csv("C:/Users/agneh/Desktop/deposition_loads.csv")
 
-### Cleaning ###
+#cleaning
 east_q$q<- east_q$X_00060_00003*0.02832 #convert to cms
 swe$swe<- swe$swe*25.4 #convert to mm
 
@@ -65,7 +67,7 @@ dep_seg_model<- data.frame(year = avg_dep$year, deposition = dep_fitted)
 ggplot(dep_seg_model, aes(x = year, y = deposition)) + geom_line()
 davies.test(dep_seg,seg.Z = ~ Year, k = 10)
 
-### Plots ###
+#plot
 q_plot<- ggplot() + geom_line(east_q_sub, mapping = aes(water_year_day, q, group = water_year, col = water_year))+
   labs(title = "Discharge",
        x = "Month",
@@ -117,6 +119,7 @@ dep_plot<-ggplot(loads_long, aes(x = yr)) +
   theme(text = element_text(size = 16), legend.position = c(0.9, 0.9), 
         legend.background = element_rect(fill = 'white', color = 'black'), legend.title = element_blank())
 dep_plot
+
 
 
 setwd("C:/Users/agneh/Box/Hydrology_Lab/Undergraduates/URSA/Gracie Neher/Figures")

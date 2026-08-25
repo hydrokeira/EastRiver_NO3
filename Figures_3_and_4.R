@@ -9,8 +9,8 @@ library(segmented)
 
 ### Data ###
 
-east<-read.csv("C:/Users/agneh/Box/Hydrology_Lab/Undergraduates/URSA/Gracie Neher/ForSubmission/Final_Data/East_NO3.csv")
-slate<-read.csv("C:/Users/agneh/Box/Hydrology_Lab/Undergraduates/URSA/Gracie Neher/ForSubmission/Final_Data/Slate_NO3.csv")
+east<-read.csv("C:/Users/agneh/Desktop/URSA/Data/e_no3/e_no3.csv")
+slate<-read.csv("C:/Users/agneh/Desktop/URSA/Data/s_no3/s_no3_2.csv")
 
 
 ### Cleaning ###
@@ -37,7 +37,6 @@ slate1<-slate %>%
 slate1<-slate1[slate1$year >2006,]
 slate2<-slate1[slate1$year < 2011,]
 slate3<-slate1[slate1$year > 2011,]
-
 
 both_now<-bind_rows(slate1, east1)
 
@@ -98,7 +97,7 @@ east_p2<-east2[east2$year>2018,]
 east_p1<-east_p1 %>%
   dplyr::mutate(group = case_when(
     year<=2010 ~ "2007 - 2010",
-    year>2010 ~ "2019 - 2023"
+    year>2018 ~ "2019 - 2023"
   ))
 
 east_p1$season <- factor(east_p1$season, levels = c("spring", "summer/fall", "winter"))
@@ -106,8 +105,42 @@ east_p1$season <- factor(east_p1$season, levels = c("spring", "summer/fall", "wi
 
 ### Analyses/tests ###
 
+#stdevs
+e_overlap<-subset(east2, east2$year %in% wanted_years)
+s_sd<- sd(slate1$no3)
+s_sd
+e_sd<- sd(e_overlap$no3)
+e_sd
+w<- subset(both_now_2, season == 'winter')
+s<- subset(both_now_2, season == 'summer/fall')
+sp<- subset(both_now_2, season == 'spring')
+ew<- subset(w, site_no == 'East')
+sw<- subset(w, site_no == 'Slate')
+es<- subset(s, site_no == 'East')
+ss<- subset(s, site_no == 'Slate')
+esp<- subset(sp, site_no == 'East')
+ssp<- subset(sp, site_no == 'Slate')
+sd(ew$no3)
+sd(sw$no3)
+sd(es$no3)
+sd(ss$no3)
+sd(esp$no3)
+sd(ssp$no3)
+
+#coefficients of variation
+e_no3_mean = mean(e_overlap$no3)
+e_no3_mean
+s_no3_mean = mean(slate1$no3)
+s_no3_mean
+
+e_cv = e_sd/e_no3_mean
+e_cv
+s_cv = s_sd/s_no3_mean
+s_cv
+
 #east overlap mann kendell
 east_overlap<-subset(east, east$wy %in% wanted_years)
+
 east_annual_no3 <- east %>%
   mutate(
     year = year(date)
@@ -167,6 +200,35 @@ e2_spring = subset(east_p2, season == spring)
 spring_ttest_e<- t.test(e1_spring$no3, e2_spring$no3, alternative = c('two.sided'), mu = 0, paired = FALSE, 
                         var.equal = FALSE, conf.level = 0.95)
 spring_ttest_e
+
+#East vs Slate overall t test
+p1_ttest<- t.test(east_p1$no3, slate_p1$no3, alternative = c('two.sided'), mu = 0, paired = FALSE, 
+                  var.equal = FALSE, conf.level = 0.95)
+p1_ttest
+p2_ttest<- t.test(east_p2$no3, slate_p2$no3, alternative = c('two.sided'), mu = 0, paired = FALSE, 
+                  var.equal = FALSE, conf.level = 0.95)
+p2_ttest
+
+#East vs Slate seasonal t tests
+summer1_ttest_evs<- t.test(e1_summer$no3, s1_summer$no3, alternative = c('two.sided'), mu = 0, paired = FALSE, 
+                           var.equal = FALSE, conf.level = 0.95)
+summer1_ttest_evs
+winter1_ttest_evs<- t.test(e1_winter$no3, s1_winter$no3, alternative = c('two.sided'), mu = 0, paired = FALSE, 
+                           var.equal = FALSE, conf.level = 0.95)
+winter1_ttest_evs
+spring1_ttest_evs<- t.test(e1_spring$no3, s1_spring$no3, alternative = c('two.sided'), mu = 0, paired = FALSE, 
+                           var.equal = FALSE, conf.level = 0.95)
+spring1_ttest_evs
+
+summer2_ttest_evs<- t.test(e2_summer$no3, s2_summer$no3, alternative = c('two.sided'), mu = 0, paired = FALSE, 
+                           var.equal = FALSE, conf.level = 0.95)
+summer2_ttest_evs
+winter2_ttest_evs<- t.test(e2_winter$no3, s2_winter$no3, alternative = c('two.sided'), mu = 0, paired = FALSE, 
+                           var.equal = FALSE, conf.level = 0.95)
+winter2_ttest_evs
+spring2_ttest_evs<- t.test(e2_spring$no3, s2_spring$no3, alternative = c('two.sided'), mu = 0, paired = FALSE, 
+                           var.equal = FALSE, conf.level = 0.95)
+spring2_ttest_evs
 
 #East seasonal Mann Kendall
 east_winter <- east2 %>%

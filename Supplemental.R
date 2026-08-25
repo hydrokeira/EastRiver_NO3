@@ -1,169 +1,200 @@
+library(EflowStats)
 library(ggplot2)
 library(ggpubr)
+require(dataRetrieval)
+library(EGRET)
 library(dplyr)
 library(trend)
-library(ggforce)
 
 ### Data ###
-e_daily_q<-read.csv("C:/Users/agneh/Box/Hydrology_Lab/Undergraduates/URSA/Gracie Neher/ForSubmission/Final_Data/East_Q.csv")
-no3<-read.csv("C:/Users/agneh/Box/Hydrology_Lab/Undergraduates/URSA/Gracie Neher/ForSubmission/Final_Data/East_NO3.csv")
-slate_syn_no3<-read.csv("C:/Users/agneh/Box/Hydrology_Lab/Undergraduates/URSA/Gracie Neher/ForSubmission/Final_Data/Slate_summer_2022_synoptic.csv")
-snotel<-read.csv("C:/Users/agneh/Box/Hydrology_Lab/Undergraduates/URSA/Gracie Neher/ForSubmission/Final_Data/CB_snotel_cleaned.csv")
-n_dep<-read.csv("C:/Users/agneh/Box/Hydrology_Lab/Undergraduates/URSA/Gracie Neher/ForSubmission/Final_Data/CB_N_deposition_cleaned.csv")
-wrtds_annual<-read.csv("C:/Users/agneh/Box/Hydrology_Lab/Undergraduates/URSA/Gracie Neher/ForSubmission/Final_Data/WRTDS_annual_cleaned.csv")
-wrtds_monthly<-read.csv("C:/Users/agneh/Box/Hydrology_Lab/Undergraduates/URSA/Gracie Neher/ForSubmission/Final_Data/WRTDS_monthly_cleaned.csv")
+e_daily_q<-read.csv("C:/Users/agneh/Box/Hydrology_Lab/Undergraduates/URSA/Gracie Neher/Data/east_q_wyd.csv")
+e_no3<-read.csv("C:/Users/agneh/Desktop/URSA/Data/e_no3/e_no3.csv")
+snotel<-read.csv("C:/Users/agneh/Box/Hydrology_Lab/Undergraduates/URSA/Gracie Neher/Data/swe_wyd.csv")
+n_dep<-read.csv("C:/Users/agneh/Desktop/URSA/Data/CB_N_deposition.csv")
+s_no3<-read.csv("C:/Users/agneh/Desktop/URSA/Data/s_no3/s_no3_2.csv")
 
 ### Cleaning ###
-e_daily_q$Q<- e_daily_q$X_00060_00003
-
-no3$date<-as.Date(no3$date, format = "%m/%d/%Y")
-
-no3<- no3 %>%
-  mutate(month = month(date))
-
+e_daily_q$q<- e_daily_q$X_00060_00003*0.02832 #convert to cms
+snotel$swe_mm<- snotel$swe*25.4 #convert to mm
 n_dep$NO3[n_dep$NO3 == -9]<- NA
+e_no3$date<-as.Date(e_no3$date, format = "%m/%d/%Y")
+s_no3$date<-as.Date(s_no3$date, format = "%m/%d/%Y")
+n_dep$date<- as.Date(n_dep$dateOn)
 
-n_dep$month<-substr(n_dep$yrmonth, nchar(n_dep$yrmonth)-1, nchar(n_dep$yrmonth))
+e_no3$no3_n = e_no3$no3
+e_no3$no3 = e_no3$no3_n*4.427
 
-peak_swe<-aggregate(swe~wy, data = snotel, FUN = max)
-peak_swe<-peak_swe %>% 
-  slice(14:43)
-wrtds_annual$peak_swe<-peak_swe
-wrtds_annual$peak_swe_mm<-wrtds_annual$peak_swe*25.4
+s_no3$no3_n = s_no3$no3
+s_no3$no3 = s_no3$no3_n*4.427
 
-avg_dep<-aggregate(NO3~wy, data = n_dep, FUN = mean)
-wrtds_annual<-left_join(wrtds_annual, avg_dep, by = "wy")
-wrtds_annual<-wrtds_annual[complete.cases(wrtds_annual$NO3.x),]
 
-##convert units
-e_daily_q$Q_m<-e_daily_q$Q*.0283168
+east2<-e_no3 %>%
+  dplyr::mutate(year = year(e_no3$date)) %>%
+  dplyr::mutate(month = month(e_no3$date))
+  ))
 
-no3$no3_n = no3$no3
-no3$no3 = no3$no3_n*4.427
+slate2<-s_no3 %>%
+  dplyr::mutate(year = year(slate$date))
 
-wrtds_monthly$no3_n = wrtds_monthly$GenConc
-wrtds_monthly$no3 = wrtds_monthly$no3_n*4.427
+avg_no3<- east2 %>%
+  group_by(year) %>%
+  summarise(avg_conc = mean(no3)) %>%
+  mutate(year = as.numeric(as.character(year)))
 
-wrtds_annual$no3_n = wrtds_annual$GenConc
-wrtds_annual$no3 = wrtds_annual$no3_n*4.427
+n_dep <- n_dep %>%
+  mutate(month = month(dateOn)) %>%
+  mutate(year = year(dateOn)) %>%
+  filter(complete.cases(NO3))
 
-snotel$swe_mm<-snotel$swe*25.4
+avg_dep <- n_dep %>%
+  group_by(year) %>%
+  summarise(avg_dep = mean(NO3))
 
-slate_syn_no3$no3_mgL<- slate_syn_no3$NO3*0.062
+e_daily_q <- e_daily_q %>%
+  mutate(month = month(Date)) %>%
+  mutate(year = year(Date))
+
+avg_q <- e_daily_q %>%
+  group_by(year) %>%
+  summarise(avg_q = mean(q))
+
+snotel <- snotel %>%
+  mutate(year = year(date))
 
 ### Plots ###
 
-#no3 plot (S1a)
-no3_plot<-
-  ggplot(no3, mapping = aes(as.Date(date), no3), col = "black")+
-  geom_point(size = 3)+
-  theme_classic()+
-  labs(title = "NO3 Concentration", x = "Date", y = "NO3 (mg/L)")+
-  theme(text = element_text(size = 20))
-no3_plot
-
-#no3 deposition plot (S1b)
-n_dep_plot<-
+## Figure S1
+no3_points<- 
   ggplot()+
-  geom_point(n_dep, mapping = aes(as.Date(dateOn), NO3), col = "black")+
-  theme_classic()+
-  labs(title = "Atmospheric NO3 Deposition", x = "Date", y = "NO3 (mg/L)")+
+  geom_point(e_no3, mapping = aes(date, no3))+
+  labs(x = "Date", y = "NO3 concentration") +
+  theme_classic() +
   theme(text = element_text(size = 20))
-n_dep_plot
+no3_points
 
-## box plots
-#no3 boxplot (S1c)
-no3$month<-as.factor(no3$month)
+dep_points<- 
+  ggplot()+
+  geom_point(n_dep, mapping = aes(date, NO3))+
+  labs(x = "Date", y = "NO3 deposition") +
+  theme_classic() +
+  theme(text = element_text(size = 20))
+dep_points
+
 no3_boxplot<- 
-  ggplot()+
-  geom_boxplot(no3, mapping = aes(month, no3), fill = "grey")+
-  labs(x = "Month", y = "NO3 (mg/L)")+
+  ggplot(east2, mapping = aes(group = month, x = month, y = no3))+
+  geom_boxplot()+
+  labs(x = "Month", y = "NO3 concentration")+
+  scale_x_continuous(breaks = c(1, 2, 3, 4, 5, 6, 7, 8, 9, 10 , 11, 12)) +
   theme_classic()+
   theme(text = element_text(size = 20))
 no3_boxplot
 
-#deposition boxplot (S1d)
 dep_boxplot<- 
   ggplot()+
-  geom_boxplot(n_dep, mapping = aes(month, NO3), fill = "grey")+
-  labs(x = "Month", y = "NO3 (mg/L)")+
+  geom_boxplot(n_dep, mapping = aes(group = month, x = month, y = NO3))+
+  labs(x = "Month", y = "NO3 Deposition")+
+  scale_x_continuous(breaks = c(1, 2, 3, 4, 5, 6, 7, 8, 9, 10 , 11, 12)) +
   theme_classic()+
   theme(text = element_text(size = 20))
 dep_boxplot
 
-pdf('FigureS1.pdf', height = 8, width = 13)
-ggarrange(no3_plot, n_dep_plot, no3_boxplot, dep_boxplot, labels = c("a", "b", "c", "d"))
+pdf("FigureS1", height = 8, width = 12)
+ggarrange(no3_points, dep_points, no3_boxplot, dep_boxplot, labels = c("a", "b", "c", "d"))
 dev.off()
 
-          
-## wrtds plots (Figure S2)
-#peak swe (S2a)
+## Figure S2
+
+#peak swe
+peak_swe<-aggregate(swe_mm~year, data = snotel, FUN = max)
+peak_swe<-peak_swe %>% 
+  slice(14:44)
+avg_no3$peak_swe<-peak_swe
+
+peak_swe_trend<- lm(avg_no3~peak_swe$swe_mm, data = avg_no3)
+peak_swe_r_sq<- summary(peak_swe_trend)$r.squared
+summary(peak_swe_trend)
+#trend not sig
+
 peak_swe_plot<-
   ggplot()+
-  geom_point(wrtds_annual, mapping = aes(peak_swe_mm$swe, no3, col = peak_swe$wy), size = 3)+
+  geom_point(data = avg_no3, mapping = aes(x = peak_swe$swe_mm, y = avg_conc, col = year), size = 3)+
   scale_color_gradient(low = "darkgrey", high = "red")+
   theme_classic()+
-  labs(title = "Peak SWE vs NO3 Concentration", x = "Peak SWE (mm)", y = "NO3 (mg/L)", color = "Water year")+
+  labs(title = "Peak SWE vs NO3 Concentration", x = "Peak SWE (mm)", y = "NO3 (mg/L)", color = "Year")+
   theme(text = element_text(size = 15), legend.position = 'none')
 peak_swe_plot
   
-#avg deposition (S2b)
-#trend line
-dep_conc_trend<- lm(no3~NO3, data = wrtds_annual)
-dep_conc_r_sq<- summary(dep_conc_trend)$r.squared
-summary(dep_conc_trend)
+
+#avg deposition
+avg_no3_ndep<-left_join(avg_no3, avg_dep, by = "year")
+avg_no3_ndep<- avg_no3_ndep %>%
+  filter(complete.cases(avg_dep))
+
+dep_no3_trend<- lm(avg_conc~avg_dep, data = avg_no3_ndep)
+dep_no3_r_sq<- summary(dep_no3_trend)$r.squared
+summary(dep_no3_trend)
+#not significant
 
 avg_dep_plot<-
-  ggplot(wrtds_annual, mapping = aes(NO3, no3, col = wy))+
-  geom_smooth(method = "lm", color = "black", linewidth = 1, se = FALSE)+
+  ggplot(avg_no3_ndep, mapping = aes(avg_dep, avg_conc, col = year))+
   geom_point(size = 3)+
-  annotate("text", x = Inf, y = Inf, 
-           label = paste("R^2 = ", round(dep_conc_r_sq, 2)),
-           hjust = 1.1, vjust = 1.5)+
   theme_classic()+
-  labs(title = "Average NO3 Deposition vs Concentration", x = "NO3 Deposition (mg/L)", y = "NO3 Concentration (mg/L)", 
-       color = "Water year", size = 20)+
+  labs(title = "Average NO3 Deposition vs NO3 Concentration", x = "Avg NO3 Deposition (mg/L)", y = "NO3 Concentration (mg/L)", 
+       color = "Year", size = 20)+
   scale_color_gradient(low = "darkgrey", high = "red")+
   theme(text = element_text(size = 15), legend.position = "none")
 avg_dep_plot
 
-#avg discharge (S2c)
+#avg discharge
+avg_no3_q<-left_join(avg_no3, avg_q, by = "year")
+Q_no3_trend<- lm(avg_conc~avg_q, data = avg_no3_q)
+Q_no3_r_sq<- summary(Q_no3_trend)$r.squared
+summary(Q_no3_trend)
+#not sig
+
 avg_q_plot<-
   ggplot()+
-  geom_point(wrtds_annual, mapping = aes(Q, no3, col = wy), size = 3)+
+  geom_point(avg_no3_q, mapping = aes(avg_q, avg_conc, col = year), size = 3)+
   theme_classic()+
   labs(title = "Average Q vs NO3 Concentration", x = "Avg Q (m^3/s)", y = "NO3 (mg/L)", color = "Water year")+
   scale_color_gradient(low = "darkgrey", high = "red")+
   theme(text = element_text(size = 15), legend.position = "none")
 avg_q_plot
 
-#avg deposition + flux (S2d)
-avg_dep_flux_plot<-
-  ggplot(wrtds_annual, mapping = aes(NO3, GenFlux, col = wy))+
-  geom_point(size = 3)+
+pdf("FigureS2.pdf", height = 12, width = 8)
+ggarrange(avg_dep_plot, avg_q_plot, peak_swe_plot,
+          labels = c("a", "b", "c"), ncol = 1, nrow = 3)
+dev.off()
+
+#Figure S5
+east_p1<-east2[east2$year>2006,]
+e_no3_box<- east_p1 %>%
+  group_by(year) %>%
+  summarise(avg_conc = mean(no3)) %>%
+  mutate(year = as.numeric(as.character(year)),
+         group = case_when(
+           year<=2010 ~ "2007 - 2010",
+           year>2010 ~ "2019 - 2023"))
+
+
+slate_p1<-slate2[slate2$year>2000,]
+s_no3_box<- slate_p1 %>%
+  group_by(year) %>%
+  summarise(avg_conc = mean(no3)) %>%
+  mutate(year = as.numeric(as.character(year)),
+         group = case_when(
+           year<=2010 ~ "2007 - 2010",
+           year>2010 ~ "2019 - 2023"))
+
+s5<-ggplot()+geom_boxplot(data = e_no3_box, aes(group, avg_conc), fill = "#43648E", width = 0.2, position = position_nudge(x = -.15))+
+  geom_boxplot(data = s_no3_box, aes(group, avg_conc), fill = "#526F34", width = 0.2, position = position_nudge(x = .15))+
   theme_classic()+
-  labs(title = "Average NO3 Deposition vs NO3 Flux", x = "Avg NO3 Deposition (mg/L)", y = "NO3 Flux (kg/yr)", 
-       color = "Water year")+
-  scale_color_gradient(low = "darkgrey", high = "red")+
-  theme(text = element_text(size = 15), legend.position = "none")
-avg_dep_flux_plot
+  labs(x="Year", y="Mean NO3 (mg/L)")+
+  theme(text = element_text(size=16), legend.position = 'bottom')
+s5
 
-pdf("FigureS2.pdf", height = 8, width = 13)
-ggarrange(peak_swe_plot, avg_dep_plot, avg_q_plot, avg_dep_flux_plot, 
-          labels = c("a", "b", "c", "d"))
+pdf('FigureS5.pdf', height = 8, width = 12)
+s5
 dev.off()
-
-#slate summer 2022 concentrations by sampling time (S3)
-slate_syn_no3$Time<-factor(slate_syn_no3$Time, levels = c("early", "middle", "late"))
-pdf("FigureS3.pdf", width = 8, height = 12)
-ggplot()+
-  geom_boxplot(slate_syn_no3, mapping = aes(Time, no3_mgL, fill=Time))+
-  facet_zoom(ylim=c(0, .75))+
-  theme_bw()+
-  theme(text=element_text(size=15), axis.text.x = element_text(angle = 45, hjust = 1))+
-  labs(title = 'Summer 2022 Slate River Synoptic Samples', x="", y="NO3 (mg/L)", fill="Sampling time")+
-  scale_fill_manual(values = c("early"="#3B5026", "middle"="#6A8E43", "late"='#ADCB90'))
-dev.off()
-
 
 

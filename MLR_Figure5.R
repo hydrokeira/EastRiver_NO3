@@ -8,15 +8,15 @@ library(QuantPsyc)
 library(segmented)
 library(pdp)
 
+setwd("C:/Users/agneh/Desktop/URSA")
+
 ### Data ###
 
-e_daily_q<-read.csv("C:/Users/agneh/Box/Hydrology_Lab/Undergraduates/URSA/Gracie Neher/ForSubmission/Final_Data/East_Q.csv")
-e_no3<-read.csv("C:/Users/agneh/Box/Hydrology_Lab/Undergraduates/URSA/Gracie Neher/ForSubmission/Final_Data/East_NO3.csv")
-s_daily_q<-read.csv("C:/Users/agneh/Box/Hydrology_Lab/Undergraduates/URSA/Gracie Neher/ForSubmission/Final_Data/Slate_Q.csv")
-s_no3<-read.csv("C:/Users/agneh/Box/Hydrology_Lab/Undergraduates/URSA/Gracie Neher/ForSubmission/Final_Data/Slate_NO3.csv")
-snotel<-read.csv("C:/Users/agneh/Box/Hydrology_Lab/Undergraduates/URSA/Gracie Neher/ForSubmission/Final_Data/CB_snotel_cleaned.csv")
-n_dep<-read.csv("C:/Users/agneh/Box/Hydrology_Lab/Undergraduates/URSA/Gracie Neher/ForSubmission/Final_Data/CB_N_deposition_cleaned.csv")
-soil_moisture<-read.csv("C:/Users/agneh/Box/Hydrology_Lab/Undergraduates/URSA/Gracie Neher/ForSubmission/Final_Data/CB_snotel_soil_moisture.csv")
+e_daily_q<-read.csv("C:/Users/agneh/Box/Hydrology_Lab/Undergraduates/URSA/Gracie Neher/Data/east_q_wyd.csv")
+e_no3<-read.csv("C:/Users/agneh/Desktop/URSA/Data/e_no3/e_no3.csv")
+snotel<-read.csv("C:/Users/agneh/Desktop/URSA/Data/CB_snotel.csv")
+n_dep<-read.csv("C:/Users/agneh/Desktop/URSA/Data/CB_N_deposition.csv")
+soil_moisture<-read.csv("C:/Users/agneh/Desktop/URSA/Data/snotel_soil_moisture/cb_snotel_soil_moisture_all.csv")
 
 ### Cleaning ###
 n_dep$NO3[n_dep$NO3 == -9]<- NA
@@ -32,11 +32,8 @@ snotel$Date = snotel$date
 
 e_no3$date<-as.Date(e_no3$date, format = "%m/%d/%Y")
 e_no3$Date<-as.Date(e_no3$date, format = "%Y-%m-%d")
-s_no3$date<-as.Date(s_no3$date, format = "%m/%d/%Y")
-s_no3$Date<-as.Date(s_no3$date, format = "%Y-%m-%d")
 
 e_daily_q$Q<-e_daily_q$X_00060_00003
-s_daily_q$Q<-s_daily_q$X_00060_00003
 
 #Define current and previous seasons
 
@@ -62,51 +59,7 @@ e_no3_seasons <- e_no3 %>%
   ) %>%
   filter(!is.na(prev2_season_no3)) 
 
-s_no3_seasons <- s_no3 %>%
-  mutate(
-    Year = year(Date),
-    Month = month(Date),
-    Season = case_when(
-      Month %in% c(11, 12, 1, 2, 3) ~ "Winter",
-      Month %in% c(4, 5, 6) ~ "Spring",
-      Month %in% c(7, 8, 9, 10) ~ "Summer"
-    )
-  ) %>%
-  group_by(Year, Season) %>%
-  summarize(
-    avg_no3 = mean(no3, na.rm = TRUE)
-  ) %>%
-  ungroup() %>%
-  arrange(Year, Season) %>% 
-  mutate(
-    prev_season_no3 = lag(avg_no3, 1), 
-    prev2_season_no3 = lag(avg_no3, 2)
-  ) %>%
-  filter(!is.na(prev2_season_no3)) 
-
 e_q_seasons <- e_daily_q %>%
-  mutate(
-    Year = year(Date),
-    Month = month(Date),
-    Season = case_when(
-      Month %in% c(11, 12, 1, 2, 3) ~ "Winter",
-      Month %in% c(4, 5, 6) ~ "Spring",
-      Month %in% c(7, 8, 9, 10) ~ "Summer"
-    )
-  ) %>%
-  group_by(Year, Season) %>%
-  summarize(
-    avg_Q = mean(Q, na.rm = TRUE)
-  ) %>%
-  ungroup() %>%
-  arrange(Year, Season) %>% 
-  mutate(
-    prev_season_Q = lag(avg_Q, 1), 
-    prev2_season_Q = lag(avg_Q, 2)
-  ) %>%
-  filter(!is.na(prev2_season_Q)) 
-
-s_q_seasons <- s_daily_q %>%
   mutate(
     Year = year(Date),
     Month = month(Date),
@@ -284,6 +237,18 @@ east_summer <- east_seasonal %>%
 
 east_all <- east_seasonal %>%
   filter(complete.cases(.))
+
+## 2003-2023 East NO3 trend
+e_no3_sub <- e_no3 %>%
+  mutate(Year = year(Date)) %>%
+  subset(Year > 2002) %>%
+  group_by(Year) %>%
+  summarize(avg_no3 = mean(no3, na.rm = TRUE))
+
+mk.test(e_no3_sub$avg_no3)
+sens.slope(e_no3_sub$avg_no3)
+e_lm<- lm(avg_no3~Year, data = e_no3_sub)
+summary(e_lm)
 
 
 ### Multiple linear regressions ###
@@ -464,4 +429,3 @@ pdf("actual_vs_predicted.pdf", width = 5, height = 10)
 ggarrange(avp_w, avp_sp, avp_su, ncol = 1, nrow = 3)
 
 dev.off()
-
